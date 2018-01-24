@@ -33,7 +33,6 @@ def inner_join(left_table, right_table, left_key, right_key):
 		for right_row in right_table:
 			if left_row[left_key] == right_row[right_key]:
 				left_row_skipped = False
-				right_rows.append(right_row)
 				joined = merge_dict_excluding_key(left_row, right_row, left_key, right_key)
 				output_table['result'].append(joined)
 
@@ -48,35 +47,72 @@ def inner_join(left_table, right_table, left_key, right_key):
 
 	return output_table
 
-def outer_join(left_table, right_table, left_key, right_key):
+def outer_join(first_table, second_table, first_key, second_key):
 	'''
-	Takes two tables and returns an object containing after a left join:
+	Takes two tables and returns an object containing after an outer join:
 	* Result Count - Total number of rows in joined result
 	* Rows Skipped on Left - Total number of rows in Left table that did not join
 	* Rows Skipped on Right - Total number of rows Right table that did not join
 	* Result - Array of joined objects
+
+	Note: this can either be a left-outer or right-outer join. For a left outer-join,
+	the supplied left-table should be passed as the first argument here. For a
+	right-outer join, the supplied right-table should be passed as the first argument.
 	'''
 	output_table = {
 		'result_count': 0,
-		'rows_skipped_left': 0,
-		'rows_skipped_right': 0,
+		'rows_skipped_first': 0,
+		'rows_skipped_second': 0,
 		'result': [],
 	}
 
-	for left_row in left_table:
+	for first_row in first_table:
 		row_matched = False
-		for right_row in right_table:
-			if left_row[left_key] == right_row[right_key]:
+		for second_row in second_table:
+			if first_row[first_key] == second_row[second_key]:
 				row_matched = True
-				output_table['result_count'] = output_table['result_count'] + 1
-				joined = merge_dict_excluding_key(left_row, right_row, left_key, right_key)
-				output_table['result'] = output_table['result'].append(joined)
+				joined = merge_dict_excluding_key(first_row, second_row, first_key, second_key)
+				output_table['result'].append(joined)
 
 		if not row_matched:
-			output_table['result_count'] = output_table['result_count'] + 1
-			default_row = {k: None for k in right_table[0]}
-			joined = merge_dict_excluding_key(left_row, default_row, left_key, right_key)
-			output_table['result'] = output_table['result'].append(joined)
+			default_row = {k: None for k in second_table[0]}
+			joined = merge_dict_excluding_key(first_row, default_row, first_key, second_key)
+			output_table['result'].append(joined)
+
+	output_table['result_count'] = len(output_table['result'])
+	output_table['rows_skipped_second'] = len(second_table) - len([x for x in output_table['result'] if None not in x.values()])
+
+	return output_table
+
+def left_join(left_table, right_table, left_key, right_key):
+	'''
+	Wrapper method to call outer_join with proper orientation of tables for
+	A left join
+	'''
+	result = outer_join(left_table, right_table, left_key, right_key)
+
+	result['rows_skipped_left'] = result['rows_skipped_first']
+	result.pop('rows_skipped_first')
+
+	result['rows_skipped_right'] = result['rows_skipped_second']
+	result.pop('rows_skipped_second')
+
+	return result
+
+def right_join(left_table, right_table, left_key, right_key):
+	'''
+	Wrapper method to call outer_join with proper orientation of tables for
+	A right join
+	'''
+	result = outer_join(right_table, left_table, right_key, left_key)
+
+	result['rows_skipped_right'] = result['rows_skipped_first']
+	result.pop('rows_skipped_first')
+
+	result['rows_skipped_left'] = result['rows_skipped_second']
+	result.pop('rows_skipped_second')
+
+	return result
 
 if __name__ == "__main__":
 	if len(sys.argv) != 4 or sys.argv[1] not in ["inner", "left", "outer"]:
@@ -117,6 +153,6 @@ if __name__ == "__main__":
 		if sys.argv[1] == "inner":
 			print inner_join(left_table, right_table, left_key, right_key)
 		elif sys.argv[1] == "left":
-			print outer(left_table, right_table, left_key, right_key)
+			print left_join(left_table, right_table, left_key, right_key)
 		else:
-			print outer(right_table, left_table, right_key, left_key)
+			print right_join(right_table, left_table, right_key, left_key)
